@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  SALES_USER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  LOST
+  CONVERTED
+}
+
+enum LeadSource {
+  WEBSITE
+  FACEBOOK
+  GOOGLE_ADS
+  REFERRAL
+  MANUAL
+}
+
+enum DealStage {
+  PROSPECTING
+  QUALIFICATION
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(SALES_USER)
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedLeads    Lead[]     @relation("LeadAssignee")
+  createdLeads     Lead[]     @relation("LeadCreator")
+  assignedContacts Contact[]  @relation("ContactAssignee")
+  createdContacts  Contact[]  @relation("ContactCreator")
+  createdCompanies Company[]
+  assignedDeals    Deal[]     @relation("DealAssignee")
+  createdDeals     Deal[]     @relation("DealCreator")
+  assignedTasks    Task[]     @relation("TaskAssignee")
+  createdTasks     Task[]     @relation("TaskCreator")
+  notes            Note[]
+  activities       Activity[]
+  emailLogs        EmailLog[]
+}
+
+model Lead {
+  id         String     @id @default(cuid())
+  firstName  String
+  lastName   String
+  email      String?
+  phone      String?
+  company    String?
+  position   String?
+  status     LeadStatus @default(NEW)
+  source     LeadSource @default(MANUAL)
+  value      Float?
+  notes      String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  assignedToId String?
+  assignedTo   User?   @relation("LeadAssignee", fields: [assignedToId], references: [id])
+  createdById  String
+  createdBy    User    @relation("LeadCreator", fields: [createdById], references: [id])
+  companyId    String?
+  companyRel   Company? @relation(fields: [companyId], references: [id])
+
+  tasks      Task[]
+  notes_rel  Note[]     @relation("LeadNotes")
+  activities Activity[]
+  emailLogs  EmailLog[]
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  company   String?
+  position  String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedToId String?
+  assignedTo   User?   @relation("ContactAssignee", fields: [assignedToId], references: [id])
+  createdById  String
+  createdBy    User    @relation("ContactCreator", fields: [createdById], references: [id])
+  companyId    String?
+  companyRel   Company? @relation(fields: [companyId], references: [id])
+
+  deals      Deal[]
+  tasks      Task[]
+  notes_rel  Note[]     @relation("ContactNotes")
+  activities Activity[]
+  emailLogs  EmailLog[]
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  website   String?
+  industry  String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  leads      Lead[]
+  contacts   Contact[]
+  deals      Deal[]
+  notes_rel  Note[]     @relation("CompanyNotes")
+  activities Activity[]
+}
+
+model Deal {
+  id                String    @id @default(cuid())
+  title             String
+  value             Float     @default(0)
+  stage             DealStage @default(PROSPECTING)
+  expectedCloseDate DateTime?
+  notes             String?
+  order             Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  contactId    String?
+  contact      Contact? @relation(fields: [contactId], references: [id])
+  companyId    String?
+  company      Company? @relation(fields: [companyId], references: [id])
+  assignedToId String?
+  assignedTo   User?    @relation("DealAssignee", fields: [assignedToId], references: [id])
+  createdById  String
+  createdBy    User     @relation("DealCreator", fields: [createdById], references: [id])
+
+  tasks      Task[]
+  notes_rel  Note[]     @relation("DealNotes")
+  activities Activity[]
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  dueDate     DateTime?
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus   @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  assignedToId String?
+  assignedTo   User?    @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  createdById  String
+  createdBy    User     @relation("TaskCreator", fields: [createdById], references: [id])
+  leadId       String?
+  lead         Lead?    @relation(fields: [leadId], references: [id])
+  contactId    String?
+  contact      Contact? @relation(fields: [contactId], references: [id])
+  dealId       String?
+  deal         Deal?    @relation(fields: [dealId], references: [id])
+
+  activities Activity[]
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdById String
+  createdBy   User    @relation(fields: [createdById], references: [id])
+  leadId      String?
+  lead        Lead?    @relation("LeadNotes", fields: [leadId], references: [id])
+  contactId   String?
+  contact     Contact? @relation("ContactNotes", fields: [contactId], references: [id])
+  companyId   String?
+  company     Company? @relation("CompanyNotes", fields: [companyId], references: [id])
+  dealId      String?
+  deal        Deal?    @relation("DealNotes", fields: [dealId], references: [id])
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  type        String
+  description String
+  createdAt   DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  leadId    String?
+  lead      Lead?    @relation(fields: [leadId], references: [id])
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id])
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id])
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  subject   String
+  message   String
+  recipient String
+  sentAt    DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  createdById String
+  createdBy   User    @relation(fields: [createdById], references: [id])
+  leadId      String?
+  lead        Lead?    @relation(fields: [leadId], references: [id])
+  contactId   String?
+  contact     Contact? @relation(fields: [contactId], references: [id])
+}
